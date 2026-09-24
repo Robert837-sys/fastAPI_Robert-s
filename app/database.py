@@ -1,7 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker,declarative_base
+from dotenv import load_dotenv
+import os
 
-SQLALCHEMY_DATABASE_URL='postgresql://postgres:Agie%402015@localhost/fastAPI'
+load_dotenv()  # reads .env and loads values into environment variables
+
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine=create_engine(SQLALCHEMY_DATABASE_URL)
 
