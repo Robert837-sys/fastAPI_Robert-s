@@ -1,6 +1,7 @@
 from fastapi import FastAPI,Response,HTTPException,status,Depends
 from fastapi.params import Body
 from pydantic import BaseModel 
+import bcrypt
 from typing import Optional,List
 from random import randrange
 import psycopg2
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session
 from . import models,schemas
 from .database import engine,get_db
 
+# here I am telling hashing what algorithmn I wanna use in this case 'bcrypt'
+# pwd_context=CryptContext(schemes=["bcrypt"],deprecated="auto")
 models.Base.metadata.create_all(bind=engine)
 
 app=FastAPI()
@@ -17,16 +20,7 @@ app=FastAPI()
 
  
     
-while True:     
-    try:
-        conn=psycopg2.connect(host='localhost',database='fastAPI',user='postgres',password='Agie@2015',cursor_factory=RealDictCursor)
-        cursor=conn.cursor()
-        print("Database connection was successfull!")
-        break
-    except Exception as error:
-        print("Connection to database failed")
-        print("Error: ",error)
-        time.sleep(2)
+
     
 # my_posts=[{"title":"title of post 1","content":"content of post 1","id":1},{"title":"favorite foods","content":"I like pizza","id":2}]
 
@@ -187,3 +181,14 @@ def update_post(id: int,updated_post: schemas.PostCreate,db:Session=Depends(get_
 
 
 # 
+@app.post("/users",response_model=schemas.UserOut,status_code=status.HTTP_201_CREATED)
+def create_user(user:schemas.UserCreate ,db:Session=Depends(get_db)):
+    # hash the password which can be retrieved from user.password
+    hashed_password=bcrypt.hashpw(user.password.encode("utf-8"),bcrypt.gensalt()).decode("utf-8")
+    user.password=hashed_password
+    new_user=models.User(**user.model_dump())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user 
+    
