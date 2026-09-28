@@ -1,78 +1,38 @@
 from fastapi import FastAPI,Response,HTTPException,status,Depends
 from fastapi.params import Body
 from pydantic import BaseModel 
-import bcrypt
 from typing import Optional,List
 from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
 from sqlalchemy.orm import Session
-from . import models,schemas
+from . import models,schemas,utils
 from .database import engine,get_db
+from .routers import post,user  
 
-# here I am telling hashing what algorithmn I wanna use in this case 'bcrypt'
-# pwd_context=CryptContext(schemes=["bcrypt"],deprecated="auto")
+
+
 models.Base.metadata.create_all(bind=engine)
 
 app=FastAPI()
 
-
- 
-    
-
-    
-# my_posts=[{"title":"title of post 1","content":"content of post 1","id":1},{"title":"favorite foods","content":"I like pizza","id":2}]
+app.include_router(post.router)   
+app.include_router(user.router)
 
 @app.get("/")
 def root():
     return {"message":"welcome to my api!!!!"}
-# def read_root():
-#     return {"Hello": "World"}
 
-
-
-    
-
-# @app.get("/posts")
-# def get_posts():
-#     return {"data":my_posts}
-
-
-# @app.post("/cposts")
-# def create_posts(post: Post):
+# """
+# @app.post("/createposts",status_code=status.HTTP_201_CREATED)
+# def create_posts(post:schemas.Post):
 #     post_dict=post.model_dump()
-#     # print(new_post.published )
-#     # print(new_post.model_dump() )
-#     # return {"data":"new post"}
 #     post_dict['id']=randrange(0,1000000)
-#     my_posts.append(post_dict.model_dump())
+#     my_posts.append(post_dict)
 #     return {"data":post_dict}
+# """
 
-
-
-# title str, content str
-
-# Revision, delete after practice
-
-@app.post("/createposts",status_code=status.HTTP_201_CREATED)
-def create_posts(post:schemas.Post):
-    post_dict=post.model_dump()
-    post_dict['id']=randrange(0,1000000)
-    my_posts.append(post_dict)
-    return {"data":post_dict}
-
-# hit post request again
-
-# after all that hit send again
-
-
-
-
-
-
-
-# CRUD Applications
 
 my_posts=[{"title":"title of post 1","content":"content of post 1","id":1},{"title":"favorite foods","content":"I like pizza","id":2}]
 
@@ -90,105 +50,13 @@ def find_index_post(id):
 def root():
     return {"message":"welcome to my api!!!!"}
 
-@app.get("/posts12")
-def get_posts(db: Session = Depends(get_db)):
-    # cursor.execute("""SELECT * FROM post """)
-    # posts=cursor.fetchall()
-    posts=db.query(models.Post).all()
-    return posts
 
 
-@app.post("/posts1",status_code=status.HTTP_201_CREATED,response_model=schemas.Post)
-def create_posts(post:schemas.PostCreate,db: Session = Depends(get_db)):
-    # """
-    # cursor.execute(""" INSERT INTO posts (title,content,published) VALUES (%s,%s,%s) RETURNING * """,(post.title,post.content,post.published))
-    # new_post=cursor.fetchone()
-    # post_dict=post.model_dump()
-    # post_dict['id']=randrange(0,1000000)
-    # my_posts.append(post_dict)
-    # conn.commit()
-    # """
-    # print(**post.model_dump())
-    new_post=models.Post(**post.model_dump())
-    # new_post=models.Post(title=post.title,content=post.content,published=post.published)
-    db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
-    return new_post
-
-@app.get("/posts99/{id}",response_model=schemas.Post)
-def get_post(id: int,db:Session=Depends(get_db)):
-    # 
-    # """cursor.execute("""SELECT * FROM posts WHERE id=%s""",(str(id)))
-    # test_post=cursor.fetchone()
-    # print(test_post)
-    # print(type(id))
-    # post=find_post(id)
-    # """
-    # 
+@app.post("/login")
+def login(credentials: schemas.UserLogin,db:Session=Depends(get_db)):
+    user=db.query(models.User).filter(models.User.email==credentials.email).first()
     
-    post=db.query(models.Post).filter(models.Post.id==id).first()
-    
-    if not post:
-        # response.status_code=status.HTTP_404_NOT_FOUND
-        # return {"message":f"post with id: {id} wasn't found"}
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id {id} was not found")
-    
-    return post
-
-@app.delete("/posts/{id}",status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int,db:Session=Depends(get_db)):
-    # cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING * """,(str(id)))
-    # deleted_post=cursor.fetchone()
-    # # index=find_index_post(id)
-    # conn.commit()
-    
-    post_query=db.query(models.Post).filter(models.Post.id==id)
-    post=post_query.first()
-    
-    
-    if post is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"Post with id {id} doesn't exist.")
-    
-    # my_posts.pop(index)
-    # return {'message':'post was successfully deleted'}
-    post_query.delete(synchronize_session=False)
-    db.commit()
-    
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-@app.put("/posts/{id}",response_model=schemas.Post)
-def update_post(id: int,updated_post: schemas.PostCreate,db:Session=Depends(get_db)):
-    
-    # cursor.execute("""UPDATE posts SET title=%s,content=%s,published=%s WHERE id = %s RETURNING *""",(post.title,post.content,post.published,str(id)))
-    # update_post=cursor.fetchone()
-    # index=find_index_post(id)
-    # conn.commit()
-    post_query= db.query(models.Post).filter(models.Post.id==id)
-    post=post_query.first()
-    
-    if post is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"Post with id {id} doesn't exist.")
-    # print(post)
-    # post_dict=post.model_dump()
-    # post_dict['id']=id
-    # my_posts[index]=post_dict
-    post_query.update(updated_post.model_dump(),synchronize_session=False)
-    
-    db.commit()
-    
-    return post_query.first()
-
-
-# 
-@app.post("/users",response_model=schemas.UserOut,status_code=status.HTTP_201_CREATED)
-def create_user(user:schemas.UserCreate ,db:Session=Depends(get_db)):
-    # hash the password which can be retrieved from user.password
-    hashed_password=bcrypt.hashpw(user.password.encode("utf-8"),bcrypt.gensalt()).decode("utf-8")
-    user.password=hashed_password
-    new_user=models.User(**user.model_dump())
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user 
-    
+    if not user or not utils.verify_password(credentials.password,user.password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid credentials")
+    return {"message":"Login successful"}
+  
